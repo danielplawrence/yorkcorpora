@@ -82,28 +82,10 @@ vowels$age_group=ifelse(vowels$year>1980,"Y",ifelse(vowels$year>1939,"M","O"))
 vowels<-subset(vowels,stress==1)
 #####Dipthongization
 df<-dcast(vowels,speaker+age_group+year+sex~vowel,value.var="eucdist_norm",mean,na.rm=T)
-df[19,]$year=1988
-df[20,]$year=1987
-df[20,]$age_group<-"Y"
-df[19,]$age_group<-"Y"
-df[14,]$OW<-0.30
-df[14,]$EY<-0.39
-df[20,]$OW<-0.42
-df[20,]$EY<-0.52
-df[19,]$OW<-0.36
-df[19,]$EY<-0.42
-df[17,]$EY<-0.41
-df[17,]$OW<-0.32
-df[13,]$EY<-0.28
-df[13,]$OW<-0.32
-df[16,]$EY<-0.32
-df[16,]$OW<-0.35
-for (i in 1:nrow(df)){
-	if (df$OW[i]<0.18){df$OW[i]=df$OW[i]+0.1}
-}
+
 	##Year of birth
 	a<-ggplot(df,aes(x=year,y=OW))
-a+geom_point()+stat_smooth(method='lm')
+a+geom_point(aes(color=age_group,shape=sex))+stat_smooth(method='lm')
 
 ##Monkeying
 
@@ -116,7 +98,7 @@ a<-ggplot(df,aes(x=year,y=OW,group=1))
 a+geom_point()+stat_smooth(method='lm')
 
 a<-ggplot(df,aes(x=year,y=UW,group=1))
-a+geom_point()+stat_smooth(method='lm')
+a+geom_point(aes(color=age_group))+geom_text(aes(x=year,y=UW,label=speaker))+stat_smooth(method='lm')
 
 #####FACE-GOAT correlation
 df<-dcast(vowels,speaker+age_group+year+sex~vowel,value.var="eucdist_norm",median,na.rm=T)

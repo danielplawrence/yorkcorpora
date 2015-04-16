@@ -522,11 +522,13 @@ praat("Extract part...",input=sound,output=paste(getwd(),outname,sep="/"),argume
  ## each word and remove it if it is likely
  ## to not be the target speaker
 get_bigrams<-function(file){
-	data<-scan(file=file,what='list',sep="\n")
+	
+##Get indices of chunks
+data<-scan(file=file,what='list',sep="\n")
 #####Who is who?
 spk1=strsplit(data[1],split=":")[[1]][1]
 spk2=strsplit(data[2],split=":")[[1]][1]
-spk3="I"
+spk3="IN"
 
 #####Get rid of the intro lines
 data=data[4:length(data)]
@@ -563,7 +565,6 @@ breakoff="([[:alnum:]_])--[[:blank:]]"
 data<-gsub(shortpause,"\\1 -- ",data)
 data<-gsub(breakoff,"\\1- ",data)
 
-##Get indices of chunks
 chunks<-grep("TIME|ENDS|INATES",data,ignore.case=FALSE)
 nchunks<-length(chunks)
 #################################################
@@ -607,7 +608,21 @@ for (chunk in 1:(nchunks-1)){
 	outdf=rbind(outdf,tempdf)
 
 }
-
+outdf[,5]<-gsub(paste(spk1,":",sep=""),"",outdf[,5])
+outdf[,5]<-gsub(paste(spk2,":",sep=""),"",outdf[,5])
+outdf[,5]<-gsub(paste(spk3,":",sep=""),"",outdf[,5])
+outdf<-gsub("\\(laughs\\)","{LG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\(laughter\\)","{LG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\(coughs\\)","{CG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\(coughing\\)","{CG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\(breath\\)","{BR}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\(breathing\\)","{BR}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\[laughs\\]","{LG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\[laughter\\]","{LG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\[coughs\\]","{CG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\[coughing\\]","{CG}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\[breath\\]","{BR}",outdf,ignore.case=TRUE)
+outdf<-gsub("\\[breathing\\]","{BR}",outdf,ignore.case=TRUE)
 outdf[,5]<-gsub('\\[.*?\\]', '', outdf[,5])
       	outdf[,5]<-gsub('\\(.*?\\)', '', outdf[,5])
       outdf[,5]<-gsub("\\[pron mai\\]","",outdf[,5])
@@ -616,14 +631,7 @@ outdf[,5]<-gsub('\\[.*?\\]', '', outdf[,5])
 		outdf[,5]<-gsub("[A-Z]:","",outdf[,5])
 #####Write new text file and check with user
 ###Laughter
-outdf<-gsub("\\(laughs\\)","{LG}",outdf,ignore.case=TRUE)
-outdf<-gsub("\\(laughter\\)","{LG}",outdf,ignore.case=TRUE)
-outdf<-gsub("\\(coughs\\)","{CG}",outdf,ignore.case=TRUE)
-outdf<-gsub("\\(coughing\\)","{CG}",outdf,ignore.case=TRUE)
-outdf<-gsub("\\(breath\\)","{BR}",outdf,ignore.case=TRUE)
-outdf<-gsub("\\(breathing\\)","{BR}",outdf,ignore.case=TRUE)
-
-#####Get rid of anything else in brackets inc. pauses except inaud
+#####Get rid o anything else in brackets inc. pauses except inaud
 ##restore inaudible
 outdf<-gsub("INAUDIBLE","(( ))",outdf)
 ##All numbers and other symbols except for dashes and basic punctuation
@@ -635,7 +643,8 @@ outdf<-gsub("\\(breathing\\)","{BR}",outdf,ignore.case=FALSE)
 outdf<-gsub("-","",outdf,ignore.case=FALSE)
 outdf<-gsub("--","",outdf,ignore.case=FALSE)
 ## extract bigram probabilities for each minute for each speaker
-bigrams=data.frame()
+bigrams_out=data.frame()
+trigrams_out=data.frame()
 for (chunk in 1:(nchunks-1)){
 	ts=as.character(get_time(thisrec[chunks[chunk]]))
 	te=as.character(get_time(thisrec[chunks[chunk+1]]))
@@ -645,64 +654,153 @@ pri<-unlist(strsplit(thischunk,split=" "))
 pri<-pri[pri != ""]
 pri<-tolower(pri)
 pri<-gsub("[[:punct:]]","",pri)
-bigram_priors<-table(pri[-length(pri)], pri[-1])/length(pri)
+pri2<-c(pri[-1],".")
+bigrams<-paste(pri,pri2)
+bigram_priors<-table(bigrams)/length(pri)
+pri3<-c(pri2[-1],".")
+trigrams<-paste(pri,pri2,pri3)
+trigram_priors<-table(trigrams)/length(pri)
 bigram_priors<-data.frame(bigram_priors)
+trigram_priors<-data.frame(trigram_priors)
 bigram_priors$speaker="All"
+trigram_priors$speaker="All"
 
 triA<-unlist(strsplit(thischunk[thischunk[,1]==spk1,5],split=" "))
 triA<-triA[triA != ""]
 triA<-tolower(triA)
 triA<-gsub("[[:punct:]]","",triA)
-bigrams_A<-table(triA[-length(triA)], triA[-1])/length(triA)
+triA2<-c(triA[-1],".")
+bigramsA<-paste(triA,triA2)
+bigrams_A<-table(bigramsA)/length(triA)
+triA3<-c(triA2[-1],".")
+trigramsA<-paste(triA,triA2,triA3)
+trigrams_A<-table(trigramsA)/length(triA)
 bigrams_A<-data.frame(bigrams_A)
+trigrams_A<-data.frame(trigrams_A)
 if(length(bigrams_A)>0){bigrams_A$speaker=spk1}
+if(length(trigrams_A)>0){trigrams_A$speaker=spk1}
+
 
 triB<-unlist(strsplit(thischunk[thischunk[,1]==spk2,5],split=" "))
 triB<-triB[triB != ""]
 triB<-tolower(triB)
 triB<-gsub("[[:punct:]]","",triB)
-bigrams_B<-table(triB[-length(triB)], triB[-1])/length(triB)
+triB2<-c(triB[-1],".")
+bigramsB<-paste(triB,triB2)
+bigrams_B<-table(bigramsB)/length(triB)
+triB3<-c(triB2[-1],".")
+trigramsB<-paste(triB,triB2,triB3)
+trigrams_B<-table(trigramsB)/length(triB)
 bigrams_B<-data.frame(bigrams_B)
+trigrams_B<-data.frame(trigrams_B)
 if(length(bigrams_B)>0){bigrams_B$speaker=spk2}
+if(length(trigrams_B)>0){trigrams_B$speaker=spk2}
 
 triC<-unlist(strsplit(thischunk[thischunk[,1]==spk3,5],split=" "))
 triC<-triC[triC != ""]
 triC<-tolower(triC)
 triC<-gsub("[[:punct:]]","",triC)
-bigrams_C<-table(triC[-length(triC)], triC[-1])/length(triC)
+triC2<-c(triB[-1],".")
+bigramsC<-paste(triC,triC2)
+bigrams_C<-table(bigramsC)/length(triC)
+triC3<-c(triC2[-1],".")
+trigramsC<-paste(triC,triC2,triC3)
+trigrams_C<-table(trigramsC)/length(triC)
 bigrams_C<-data.frame(bigrams_C)
+trigrams_C<-data.frame(trigrams_C)
 if(length(bigrams_C)>0){bigrams_C$speaker=spk3}
+if(length(trigrams_C)>0){trigrams_C$speaker=spk3}
 
-priorA<-nrow(bigrams_A)/nrow(bigram_priors)
-priorB<-nrow(bigrams_B)/nrow(bigram_priors)
-priorC<-nrow(bigrams_C)/nrow(bigram_priors)
-spkpriors<-c(priorA,priorB,priorC)
+bipriorA<-nrow(bigrams_A)/nrow(bigram_priors)
+bipriorB<-nrow(bigrams_B)/nrow(bigram_priors)
+bipriorC<-nrow(bigrams_C)/nrow(bigram_priors)
+bispkpriors<-c(bipriorA,bipriorB,bipriorC)
+
+tripriorA<-nrow(trigrams_A)/nrow(trigram_priors)
+tripriorB<-nrow(trigrams_B)/nrow(trigram_priors)
+tripriorC<-nrow(trigrams_C)/nrow(trigram_priors)
+trispkpriors<-c(tripriorA,tripriorB,tripriorC)
+
 spkrs=c(spk1,spk2,spk3)
-speaker_priors<-data.frame("Var1"="All","Var2"="All","Freq"=spkpriors,"speaker"=spkrs)
-out<-rbind(speaker_priors,bigram_priors,bigrams_A,bigrams_B,bigrams_C)
-out$tstart=ts
-out$tend=te
-bigrams<-rbind(bigrams,out)
-}
-return(bigrams)
+bi_speaker_priors<-data.frame("ngram"="All","Freq"=bispkpriors,"speaker"=spkrs)
+tri_speaker_priors<-data.frame("ngram"="All","Freq"=trispkpriors,"speaker"=spkrs)
+
+names(bigram_priors)<-c("ngram","Freq","speaker")
+names(trigram_priors)<-c("ngram","Freq","speaker")
+
+names(bigrams_A)<-c("ngram","Freq","speaker")
+names(bigrams_B)<-c("ngram","Freq","speaker")
+names(bigrams_C)<-c("ngram","Freq","speaker")
+
+names(trigrams_A)<-c("ngram","Freq","speaker")
+names(trigrams_B)<-c("ngram","Freq","speaker")
+names(trigrams_C)<-c("ngram","Freq","speaker")
+
+biout<-rbind(bi_speaker_priors,bigram_priors,bigrams_A,bigrams_B,bigrams_C)
+triout<-rbind(tri_speaker_priors,trigram_priors,trigrams_A,trigrams_B,trigrams_C)
+
+biout$tstart=ts
+biout$tend=te
+biout$chunk=chunk
+
+triout$tstart=ts
+triout$tend=te
+triout$chunk=chunk
+
+bigrams_out<-rbind(bigrams_out,biout)
+trigrams_out<-rbind(trigrams_out,triout)
+bigrams_out<-subset(bigrams_out,Freq!=0)
+trigrams_out<-subset(trigrams_out,Freq!=0)
 }
 
-get_probs<-function(worda,wordb,ts,te,bigrams,spk1,spk2,spk3,speaker){
+return(list("trigrams"=trigrams_out,"bigrams"=bigrams_out))
+}
+
+get_probs<-function(worda,wordb,wordc="none",ts,te,bigrams,spk1,spk2,spk3,speaker){
+	mode="bi"
 	worda<-tolower(worda)
 	wordb<-tolower(wordb)
 	bigrams$tstart<-as.numeric(bigrams$tstart)
 	bigrams$tend<-as.numeric(bigrams$tend)
 	target<-bigrams[bigrams[,5]<=as.numeric(ts)&bigrams[,6]>=as.numeric(te),]
+	which.chunk=Mode(target$chunk)
+	priorString<-max(target[target[,1]==worda&target[,2]==wordb&target[,4]=="All",]$Freq)
+	#sometimes the chunk is wrong -- this will find the right one
+	if(priorString<0){
+		#nearest chunk
+			newtarget=bigrams[bigrams[,1]==worda&bigrams[,2]==wordb,]
+				ch=newtarget[which.min(abs(newtarget[,7]-which.chunk)),7]
+				newtarget_close=bigrams[bigrams[,7]==ch,]
+				target<-newtarget_close
+			priorString<-max(target[target[,1]==worda&target[,2]==wordb&target[,4]=="All",]$Freq)
+			mode="bi"
+	}
+	if(priorString<0){
+		#unigram probs
+			newtarget=bigrams[bigrams[,1]==worda,]
+				ch=newtarget[which.min(abs(newtarget[,7]-which.chunk)),7]
+				newtarget_close=bigrams[bigrams[,7]==ch,]
+				target<-newtarget_close
+			priorString<-max(target[target[,1]==worda&target[,4]=="All",]$Freq)
+			mode="uni"
+	}
 	speakerA<-target[target[,4]==spk1,]
 	speakerB<-target[target[,4]==spk2,]
 	speakerC<-target[target[,4]==spk3,]
-	priorA<-max(speakerA[speakerA[,1]=="All",]$Freq)
-	priorB<-max(speakerB[speakerB[,1]=="All",]$Freq)
-	priorC<-max(speakerC[speakerC[,1]=="All",]$Freq)
-	priorString<-max(target[target[,1]==worda&target[,2]==wordb&target[,4]=="All",]$Freq)
+	priorA<-max(speakerA[speakerA[,1]=="All",]$Freq,na.rm=TRUE)
+	priorB<-max(speakerB[speakerB[,1]=="All",]$Freq,na.rm=TRUE)
+	priorC<-max(speakerC[speakerC[,1]=="All",]$Freq,na.rm=TRUE)
+	
+	if (mode=="bi"){
 	targetfreqA=speakerA[speakerA[,1]==worda&speakerA[,2]==wordb,]$Freq
 	targetfreqB=speakerB[speakerB[,1]==worda&speakerB[,2]==wordb,]$Freq
-	targetfreqC=speakerC[speakerC[,1]==worda&speakerC[,2]==wordb,]$Freq
+	targetfreqC=speakerC[speakerC[,1]==worda&speakerC[,2]==wordb,]$Freq}
+
+	if (mode=="uni"){
+	targetfreqA=speakerA[speakerA[,1]==worda,]$Freq
+	targetfreqB=speakerB[speakerB[,1]==worda,]$Freq
+	targetfreqC=speakerC[speakerC[,1]==worda,]$Freq}
+	
 	if (length(targetfreqA)<1){targetfreqA=0}
 		if (length(targetfreqB)<1){targetfreqB=0}
 			if (length(targetfreqC)<1){targetfreqC=0}
@@ -753,7 +851,7 @@ speakers=subset(speakers,speakers!="All")
 #####Get number of tiers and remove tier 3
 ntiers<-as.numeric(praat("Get number of tiers", input=textgrid))
 if (ntiers<3){
-	praat("Add interval tier...",input=textgrid,arguments=list(3,"speaker"))
+	praat("Insert interval tier...",input=textgrid,arguments=list(3,"speaker"))
 start_interval=1
 }
 
@@ -771,59 +869,108 @@ mat[1,]<-c("Interval","Word","Start","End","Decision","Prob")
 l=1
 clean_grid<-grid[grep("[^sp]",grid[,3]),]
 	grid_1<-clean_grid[-1,]
-	for (i in 1:20){
-	text=grid[i,3]
+	grid_prev<-rbind(c("0","0","0","0"),clean_grid)
+	for (i in 1:(matlen-1)){
+	text=clean_grid[i,3]
 	nexttext=grid_1[i,3]
 	if (i<nrow(grid))
-				if (text!="sp"){
-						tstart=as.numeric(grid[i,1])
-						tend=as.numeric(grid[i,4])
+						tstart=as.numeric(clean_grid[i,1])
+						tend=as.numeric(clean_grid[i,4])
 						check=get_spk(text,nexttext,tstart,tend,bigrams,speakers[1],speakers[2],speakers[3])
 						decision=check[1]
 						prob=check[2]
-						row=rownames(grid)[i]
+						#if we can't decide, try another bigram
+						if (is.na(prob)){
+						check=get_spk(nexttext,text,tstart,tend,bigrams,speakers[1],speakers[2],speakers[3])
+						decision=check[1]
+						prob=check[2]	
+						}
+						#if we still can't decide, use the unigram probability
+						if (is.na(prob)){
+							nexttext=grid_prev[i,3]
+						check=get_spk(nexttext,text,tstart,tend,bigrams,speakers[1],speakers[2],speakers[3])
+						decision=check[1]
+						prob=check[2]	
+						}
+						row=rownames(clean_grid)[i]
 							out=c(row,text,tstart,tend,decision,prob)
-										cat(out)
 							mat[l+1,]<-out
+							cat(out,"\n")
 							l=l+1
 				}
-}
-total_n=nwords
-total_a=as.numeric(strsplit(praat("Count labels...",input=textgrid,arguments=list(3,"a")),split=" ")[[1]][1])
-total_r=as.numeric(strsplit(praat("Count labels...",input=textgrid,arguments=list(3,"r")),split=" ")[[1]][1])
-rate=total_a/total_n*100
-cat(paste("Total words checked:",total_n,"\n"))
-cat(paste("Total accepted:",total_a,"\n"))
-cat(paste("Total rejected:",total_r,"\n"))
-cat(paste("Accuracy:",rate,"%","\n"))
-labout=c("Total.N","Total.A","Total.R","Accuracy","","")
-rbind(logdf,labout)
-sumout=c(total_n,total_a,total_r,rate)
-logdf<-rbind(logdf,sumout)
-filename=strsplit(sound,split="/")[[1]]
-name=filename[length(filename)]
-root=strsplit(name,split="\\.")[[1]][1]
-sumname=paste(root,"HtkCheck_log.txt",sep="_")
-pathname=paste(dir,sumname,sep="/")
-write.table(logdf,pathname,sep="\t", row.names=FALSE, col.names=FALSE,quote=FALSE)
-#####Strip third tier and rename
-praat("Remove tier...",input=textgrid,arguments=list(3))
-file.rename("temp_textgrid",paste(root,"HtkCheck.TextGrid",sep="_"))
+				return(mat)
 }
 
-get_spk_vec<-function(bigrams,grid){
-	grid<-grid[grep("[^sp]",grid[,3]),]
-	grid_1<-grid[-1,]
-		ts=grid[,
-		te=grid[rownames(grid)==index,4]
-		worda=grid[rownames(grid)==index,3]
-		wordb=grid[rownames(grid)==index+1,]
-		spk1=speakers[1]
-		spk2=speakers[2]
-		spk3=speakers[3]
-		a<-get_probs(worda,wordb,ts,te,bigrams,spk1,spk2,spk3,spk1)
-		b<-get_probs(worda,wordb,ts,te,bigrams,spk1,spk2,spk3,spk2)
-		c<-get_probs(worda,wordb,ts,te,bigrams,spk1,spk2,spk3,spk3)
-		candidates=c(a,b,c)
-return(c(speakers[which.max(candidates)],candidates[which.max(candidates)]))
-	}
+
+	Mode <- function(x, na.rm = FALSE) {
+  if(na.rm){
+    x = x[!is.na(x)]
+  }
+
+  ux <- unique(x)
+  return(ux[which.max(tabulate(match(x, ux)))])
+}
+
+get_speaker_tier(speaker,table){
+	outvec=c("tstart","tend")
+#####Identify start times of utterance-length chunks from table
+#####Add these chunks to a textgrid!
+speakers=levels(bigrams$speaker)
+speakers=subset(speakers,speakers!="All")
+#####Get number of tiers and remove tier 3
+ntiers<-as.numeric(praat("Get number of tiers", input=textgrid))
+if (ntiers>=3){
+	praat("Remove tier...",input=textgrid,arguments=list(3))}
+
+	praat("Insert interval tier...",input=textgrid,arguments=list(3,"speaker"))
+
+#####Get the times for a given speaker
+spk<-mat[2:nrow(mat),]
+indices<-spk[,5]
+plusone<-c(indices[2:length(indices)],NA)
+change<-cbind(indices,plusone)
+change<-as.data.frame(change)
+change$change<-change$indices!=change$plusone
+change$change[1]=TRUE
+bound<-spk[grep(TRUE,change$change),]
+bound[,3]<-as.numeric(bound[,3])
+bound[,4]<-as.numeric(bound[,4])
+starts<-bound[seq(1, nrow(bound), by = 2),c(3,5)]
+ends<-bound[seq(2, nrow(bound), by = 2),c(4,5)]
+
+ends<-rbind(ends,bound[nrow(bound),c(4,5)])
+int<-cbind(starts,ends)
+int<-data.frame(int)
+names(int)<-c("starts","spk","ends","spk2")
+}
+new <- int
+for (t in 1:50){
+	praat("Insert boundary...",input=textgrid,arguments=list(3,new$starts[t]))
+	praat("Insert boundary...",input=textgrid,arguments=list(3,new$ends[t]))
+	if (t %% 2 == 0 ){s="JC"}
+	if (t %% 2 != 0 ){s="JG"}
+	praat("Set interval text...",input=textgrid,arguments=list(3,t+1,s))
+}
+}
+
+get_speaker_tier(speaker,table){
+speakers=levels(bigrams$speaker)
+speakers=subset(speakers,speakers!="All")
+#####Get number of tiers and remove tier 3
+ntiers<-as.numeric(praat("Get number of tiers", input=textgrid))
+if (ntiers<3){
+	praat("Insert interval tier...",input=textgrid,arguments=list(3,"speaker"))
+start_interval=1
+}
+
+
+
+}
+spk<-mat[2:nrow(mat),]
+indices<-spk[,5]
+plusone<-c(indices[2:length(indices)],NA)
+change<-cbind(indices,plusone)
+change<-as.data.frame(change)
+change$change<-change$indices!=change$plusone
+change$change[1]=TRUE
+spk[grep(TRUE,change$change),]
