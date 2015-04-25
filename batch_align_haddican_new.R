@@ -555,6 +555,7 @@ data<-gsub("\342\200\231","",data)
 data<-gsub("\303\251","e",data)
 data<-gsub("\342\200\234",'"',data)
 data<-gsub("\342\200\235",'"',data)
+data<-gsub("I:","IN:",data)
 ###Cut off words
 ##these are backwards
 ##so word-_ should be word_--_(pause)
@@ -847,7 +848,7 @@ return(c(speakers[which.max(candidates)],candidates[which.max(candidates)]))
 	textgrid=paste(dir,"temp_textgrid",sep="/")
 #####Get speakers
 
-speakers=levels(bigrams$bigramsspeaker)
+speakers=levels(bigrams$bigrams$speaker)
 speakers=subset(speakers,speakers!="All")
 #####Get number of tiers and remove tier 3
 ntiers<-as.numeric(praat("Get number of tiers", input=textgrid))
@@ -869,8 +870,8 @@ mat<-matrix(data=NA,nrow=matlen+1,ncol=6)
 mat[1,]<-c("Interval","Word","Start","End","Decision","Prob")
 l=1
 clean_grid<-grid[grep("[^sp]",grid[,3]),]
-	grid_1<-clean_grid[-1,]
-	grid_2<-grid_1[-1,]
+	grid_1<-rbind(clean_grid[-1,],c("",0,0,0))
+	grid_2<-rbind(grid_1[-1,],c("",0,0,0))
 	grid_prev<-rbind(c("0","0","0","0"),clean_grid)
 	for (i in 1:(matlen-1)){
 	text=clean_grid[i,3]
@@ -1056,7 +1057,6 @@ get_probs_new<-function(worda,wordb,wordc="none",ts,te,ngrams,spk1,spk2,spk3,spe
 	targetfreqC=speakerC[speakerC[,1]==bi,]$Freq}
 
 	if (mode=="uni"){
-	speakerA[grep(paste("\\b",worda,"\\b",sep=""),speakerA$ngram),]$Freq
 	speakerA<-target_bigrams[target_bigrams$speaker==spk1,]
 	speakerB<-target_bigrams[target_bigrams$speaker==spk2,]
 	speakerC<-target_bigrams[target_bigrams$speaker==spk3,]
@@ -1084,4 +1084,47 @@ get_probs_new<-function(worda,wordb,wordc="none",ts,te,ngrams,spk1,spk2,spk3,spe
 	}
 
 
+get_tabs<-function(df,grid){
+		#work out change points
+spk<-df
+tend_n<-spk[,c(1,3,5,6)]
+tstart<-spk[,c(1,3,4,6)]
+t_start_none<-rbind(tstart[-1,],c(NA,NA,NA,NA))
+comp<-cbind(tend_n,t_start_none)
+comp$Change<-abs(comp$Start-comp$End)
+#if the difference between the endpoint at time x and startpoint at x+1 
+#is bigger than one, we treat it as a change point
+changes<-comp[comp$Change>0.9,]
+outdf<-c("speaker","tstart","tend","text")
+outmat<-matrix(0,(nrow(changes)+1),4)
+outmat<-as.data.frame(outmat)
+names(outmat)<-outdf
+text<-vector()
+#The first tstart is the absolute tstart (from spk)
+#the first tend is the first tend of the changes matrix
+#the first speaker is the first decision in spk
+#at point x, tstart is tstart(x), speaker is speaker(x), tend is tend(x+1)
+outmat[1,]<-c(as.character(spk$Decision[1]),spk$Start[1],changes$End[1],"")
+outmat[2:nrow(outmat),2]<-as.numeric(changes[,7])
+outmat[2:nrow(outmat),1]<-as.character(changes[,8])
+outmat[2:nrow(outmat),3]<-as.numeric(c(changes[2:nrow(changes),3],NA))
+#now add text -- concatenation of all strings between each tstart and tend
+grid<-as.data.frame(grid)
+outmat$text<-mapply(get_text,ts=outmat$tstart,te=outmat$tend)
+outmat$text<-gsub(", "," ",outmat$text)
+outmat$text<-gsub("c","",outmat$text)
+outmat$text<-gsub("\\(","",outmat$text)
+outmat$text<-gsub("\\)","",outmat$text)
+outmat$text<-gsub('"',"",outmat$text)
+outmat$text<-gsub('\\n',"",outmat$text)
+return(outmat)
+}
 
+
+get_text<-function(ts,te){
+	ts<-as.numeric(ts)
+	te<-as.numeric(te)
+	text<-subset(grid,tmax>=ts&tmin<=te)$text
+	text<-paste(text,sep="")
+	return(text)
+}
